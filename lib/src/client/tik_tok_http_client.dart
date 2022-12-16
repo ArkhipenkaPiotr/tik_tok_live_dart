@@ -3,68 +3,69 @@ import 'package:tik_tok_live_dart/src/client/tik_tok_request_settings.dart';
 import 'package:tik_tok_live_dart/src/generated/lib/src/proto/tiktok_schema.pb.dart';
 
 class TikTokHttpClient {
-  final Dio _dio;
-
   static int _uuc = 0;
 
-  TikTokHttpClient([int timeOut = 15000])
-      : _dio = Dio(
-    BaseOptions(
-      connectTimeout: timeOut,
-      sendTimeout: timeOut,
-      receiveTimeout: timeOut,
-    ),
-  ) {
+  TikTokHttpClient([int timeOut = 15000]) {
     _uuc++;
   }
 
   Future<WebcastResponse> getDesetializedMessage(String path, Map<String, dynamic> parameters,
       [signUrl = false]) async {
-    final json =
-    await _getRequest(url: TikTokRequestSettings.tikTokUrlWebcast + path,
+    final json = await _getRequest(
+      url: TikTokRequestSettings.tikTokUrlWebcast + path,
       parameters: parameters,
-      signUrl: signUrl,);
+      signUrl: signUrl,
+    );
 
     return WebcastResponse.fromJson(json.toString());
   }
 
   Future<Map<String, dynamic>> getObjectFromWebcastApi(String path, Map<String, dynamic> parameters,
       [bool signUrl = false]) async {
-    final json =
-    await _getRequest(url: TikTokRequestSettings.tikTokUrlWebcast + path,
+    final json = await _getRequest(
+      url: TikTokRequestSettings.tikTokUrlWebcast + path,
       parameters: parameters,
-      signUrl: signUrl,);
+      signUrl: signUrl,
+    );
     return json;
   }
 
   Future<String> getLiveStreamPage(String uniqueId, [bool signUrl = false]) async {
-    final json =
-    await _getRequest(
-      url: '${TikTokRequestSettings.tikTokUrlWeb}@$uniqueId/live/', signUrl: signUrl,);
+    final json = await _getRequest(
+      url: '${TikTokRequestSettings.tikTokUrlWeb}@$uniqueId/live/',
+      signUrl: signUrl,
+    );
     return json.toString();
   }
 
-  Future<Map<String, dynamic>> postObjectToWebcastApi(String path, Map<String, dynamic> parameters,
-      Map<String, dynamic> json,
+  Future<Map<String, dynamic>> postObjectToWebcastApi(
+      String path, Map<String, dynamic> parameters, Map<String, dynamic> json,
       [bool signUrl = false]) async {
     final resultJson = await _postRequest(
       url: TikTokRequestSettings.tikTokUrlWebcast + path,
       data: json,
       parameters: parameters,
-      signUrl: signUrl,);
+      signUrl: signUrl,
+    );
     return resultJson;
   }
 
-  Future<Map<String, dynamic>> _getRequest({required String url,
-    Map<String, dynamic>? parameters, bool signUrl = false,}) async {
+  Future<Map<String, dynamic>> _getRequest({
+    required String url,
+    Map<String, dynamic>? parameters,
+    bool signUrl = false,
+  }) async {
     final request = _buildRequest(
         signUrl ? await _getSignedUrl(url, parameters) : url, signUrl ? null : parameters);
     return await request.get();
   }
 
-  Future<Map<String, dynamic>> _postRequest(
-      {required String url, required Map<String, dynamic> data,
-        Map<String, dynamic>? parameters, bool signUrl = false,}) async {
+  Future<Map<String, dynamic>> _postRequest({
+    required String url,
+    required Map<String, dynamic> data,
+    Map<String, dynamic>? parameters,
+    bool signUrl = false,
+  }) async {
     final request = _buildRequest(
         signUrl ? await _getSignedUrl(url, parameters) : url, signUrl ? null : parameters);
     return await request.post(data);
@@ -95,7 +96,9 @@ class TikTokHttpClient {
       TikTokHttpRequest.currentHeaders.remove("User-Agent");
       TikTokHttpRequest.currentHeaders["User-Agent"] = userAgent;
     } catch (e) {
-      throw InsuffcientSigningException("Insufficent values have been supplied for signing. Likely due to an update. Post an issue on GitHub.", e);
+      throw InsuffcientSigningException(
+          "Insufficent values have been supplied for signing. Likely due to an update. Post an issue on GitHub.",
+          e);
     }
   }
 }
