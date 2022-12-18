@@ -30,10 +30,10 @@ abstract class BaseTikTokClient {
     this.enableExtendedGiftInfo = true,
     this.connecting = false,
     this.isPolling = false,
+    this.clientParams = TikTokRequestSettings.defaultClientParams,
     String lang = 'en-US',
   })  : _uniqueId = uniqueId,
         availableGifts = {},
-        clientParams = TikTokRequestSettings.defaultClientParams,
         http = TikTokHttpClient() {
     clientParams['app_language'] = lang;
     clientParams['webcast_language'] = lang;
