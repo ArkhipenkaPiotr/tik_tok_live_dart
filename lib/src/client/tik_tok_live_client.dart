@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:tik_tok_live_dart/src/client/base_tik_tok_client.dart';
-import 'package:tik_tok_live_dart/src/generated/lib/src/proto/tiktok_schema.pb.dart';
+import 'package:tik_tok_live_dart/src/events/connection_event_args.dart';
+import 'package:tik_tok_live_dart/src/events/share_event_args.dart';
+import 'package:tik_tok_live_dart/src/generated/proto/tiktok_schema.pb.dart';
 
 class TikTokLiveClient extends BaseTikTokClient {
   TikTokLiveClient(
@@ -27,7 +29,7 @@ class TikTokLiveClient extends BaseTikTokClient {
   /// Event fired when the stream is shared to 5 or more users / 10 or more users.
   final _onMoreShare = StreamController<ShareEventArgs>();
   final _onViewerCountUpdatedController = StreamController<WebcastRoomUserSeqMessage>();
-  final _onLIveEndedController = StreamController<void>();
+  final _onLIveEndedController = StreamController<bool>();
   final _onEmoteReceivedController = StreamController<WebcastEmoteChatMessage>();
   final _onEnvelopeReceivedController = StreamController<WebcastEnvelopeMessage>();
   final _onSubscribeController = StreamController<WebcastMemberMessage>();
@@ -167,7 +169,7 @@ class TikTokLiveClient extends BaseTikTokClient {
       case 'WebcastControlMessage':
         final controlMessage = WebcastControlMessage.fromBuffer(message.binary);
         if (controlMessage.action == 3) {
-          _onLIveEndedController.add(EventArgs());
+          _onLIveEndedController.add(true);
         }
         return;
       default:
@@ -181,10 +183,10 @@ class TikTokLiveClient extends BaseTikTokClient {
         .stringMatch(message.event.eventDetails.displayType);
     if (match != null) {
       final count = match.replaceAll('pm_mt_guidance_viewer_', '').replaceAll('_share', '');
-      _onMoreShare.add(ShareEventArgs(message.user, count));
+      _onMoreShare.add(ShareEventArgs(message.user, int.parse(count)));
       return;
     }
-    switch(message.event.eventDetails.displayType) {
+    switch (message.event.eventDetails.displayType) {
       case 'pm_mt_msg_viewer':
         _onLikeController.add(message.user);
         return;

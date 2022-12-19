@@ -1,23 +1,26 @@
 import 'dart:io';
 
 import 'package:fixnum/fixnum.dart';
+import 'package:tik_tok_live_dart/src/client/requests/tik_tok_cookie_jar.dart';
+import 'package:tik_tok_live_dart/src/client/sockets/tik_tok_web_socket.dart';
 import 'package:tik_tok_live_dart/src/client/tik_tok_http_client.dart';
 import 'package:tik_tok_live_dart/src/client/tik_tok_request_settings.dart';
-import 'package:tik_tok_live_dart/src/client/tik_tok_web_socket.dart';
-import 'package:tik_tok_live_dart/src/generated/lib/src/proto/tiktok_schema.pb.dart';
+import 'package:tik_tok_live_dart/src/errors/tik_tok_live_exception.dart';
+import 'package:tik_tok_live_dart/src/generated/proto/tiktok_schema.pb.dart';
 import 'package:tik_tok_live_dart/src/model/tik_tok_gift.dart';
+
+import 'sockets/i_tik_tok_web_socket.dart';
 
 abstract class BaseTikTokClient {
   final Map<String, dynamic> clientParams;
   final TikTokHttpClient http;
   final Duration pollingInterval;
   final Map<int, TikTokGift> availableGifts;
-  TikTokWebSocket? socket;
+  ITikTokWebSocket? socket;
   bool connecting, isPolling, processInitialData, fetchRoomInfoOnConnect, enableExtendedGiftInfo;
   String? roomId;
 
   //TODO specify type
-  dynamic _roomInfo;
   final String _uniqueId;
   int? viewerCount;
 
@@ -50,7 +53,7 @@ abstract class BaseTikTokClient {
   Future start([bool retryConnection = false]) async {
     try {
       await connect();
-    } on FailedConnectionException catch (e) {
+    } on TikTokLiveException catch (e) {
       if (retryConnection) {
         await Future.delayed(pollingInterval);
         return await start(retryConnection);
@@ -66,8 +69,9 @@ abstract class BaseTikTokClient {
   }
 
   Future<String?> connect() async {
-    if (connecting) throw AlreadyConnectingException();
-    if (connected) throw AlreadyConnectedException();
+    if (connecting || connected) {
+      throw TikTokLiveException('Client is already connected or in process of connecting');
+    }
 
     connecting = true;
 
@@ -76,7 +80,7 @@ abstract class BaseTikTokClient {
       if (fetchRoomInfoOnConnect) {
         final status = (await fetchRoomInfo()).selectToken('.data').selectToken('.status');
         if (status == null || status == 4) {
-          throw LiveNotFoundException();
+          throw TikTokLiveException('Live is not found');
         }
       }
 
@@ -88,16 +92,15 @@ abstract class BaseTikTokClient {
 
       return roomId;
     } catch (e) {
-      throw FailedConnectionException();
+      throw TikTokLiveException('Connection has been failed');
     }
   }
 
   Future<void> disconnect() async {
     isPolling = false;
-    _roomInfo = null;
     connecting = false;
     if (connected) {
-      await socket.disconnect();
+      await socket?.disconnect();
     }
     clientParams['cursor'] = '';
     await startWebSocketLoop();
@@ -106,8 +109,8 @@ abstract class BaseTikTokClient {
 
   Future<Map<int, TikTokGift>> fetchAvailableGifts() async {
     try {
-      final response = await http.getJObjectFromWebcastApi('gift/list/', clientParams);
-      final giftTokens = response.selectTokens('..gifts')?.firstOrNull?.children;
+      final response = await http.getObjectFromWebcastApi('gift/list/', clientParams);
+      final giftTokens = response['..gifts'].children;
       if (giftTokens == null) return {};
       for (final giftToken in giftTokens) {
         final gift = giftToken.toGift();
@@ -115,38 +118,37 @@ abstract class BaseTikTokClient {
       }
       return availableGifts;
     } catch (e) {
-      throw FailedFetchGiftsException();
+      throw TikTokLiveException('Gifts fetching is failed');
     }
   }
 
   Future fetchRoomData() async {
-    final webcastResponse = await http.getDeserializedMessage('im/fetch/', clientParams, true);
+    final response = await http.getDeserializedMessage('im/fetch/', clientParams, true);
+    final webcastResponse = response.webcastResponse;
     clientParams['cursor'] = webcastResponse.cursor;
     clientParams['internal_ext'] = webcastResponse.internalExt;
 
     try {
-      if (webcastResponse.wsUrl != null && webcastResponse.wsParam != null) {
-        await beginWebSocket(webcastResponse);
-      }
+      await beginWebSocket(webcastResponse, response.cookieJar);
     } catch (e) {
-      throw FailedConnectionException('Failed to connect to the websocket');
+      throw TikTokLiveException('Failed to connect to the websocket');
     }
 
     handleWebcastMessages(webcastResponse);
   }
 
-  Future beginWebSocket(WebCastResponse webCastResponse) async {
+  Future beginWebSocket(WebcastResponse webCastResponse, TikTokCookieJar? cookieJar) async {
     clientParams[webCastResponse.wsParam.name] = webCastResponse.wsParam.value;
     final paramsString = clientParams.keys.map((key) => '$key=${clientParams[key]}').join('&');
     final url = '${webCastResponse.wsUrl}?$paramsString';
-    socket = TikTokWebSocket(TikTokHttpRequest.cookieJar);
-    await socket.connect(url);
+    socket = TikTokWebSocket(cookieJar);
+    await socket!.connect(url);
   }
 
   Future startWebSocketLoop() async {
     while (true) {
       //TODO receiveMessage should return WebcastWebsocketMessage
-      final webSocketMessage = await socket.receiveMessage();
+      final webSocketMessage = await socket!.receiveMessage();
       if (webSocketMessage == null) continue;
       try {
         final webcastResponse = WebcastResponse.fromBuffer(webSocketMessage.binary);
@@ -161,40 +163,39 @@ abstract class BaseTikTokClient {
   Future startPolling() async {
     while (true) {
       final bytes = BytesBuilder()..add([58, 2, 104, 98]);
-      socket.writeMessage(bytes.toBytes());
+      socket?.writeMessage(bytes.toBytes());
       await Future.delayed(Duration(seconds: 10));
     }
   }
 
-  Future sendAcknowledgement(int id) {
+  Future sendAcknowledgement(Int64 id) async {
     final ack = WebcastWebsocketAck(
-      id: Int64(id),
+      id: id,
       type: 'ack',
     );
 
-    socket.writeMessage(ack.writeToBuffer());
+    socket?.writeMessage(ack.writeToBuffer());
   }
 
   Future fetchRoomId() async {
-    final html = await http.getLivestreamPage(_uniqueId);
+    final html = await http.getLiveStreamPage(_uniqueId);
     final first = RegExp('room_id=([0-9]*)').stringMatch(html)?.replaceAll('room_id=', '').trim();
     final second =
         RegExp('"roomId":"([0 - 9] *)"').stringMatch(html)?.replaceAll('"roomId":', '').trim();
     final id = first ?? second ?? '';
 
     if (id.isEmpty) {
-      throw FailedFetchRoomInfoException(
+      throw TikTokLiveException(
           'User might be offline or your IP/country might be blocked by TikTok');
     }
   }
 
   Future fetchRoomInfo() async {
     try {
-      final response = http.getJObjectFromWebcastApi('room/info', clientParams);
-      _roomInfo = response;
+      final response = http.getObjectFromWebcastApi('room/info', clientParams);
       return response;
     } catch (e) {
-      throw FailedFetchRoomINfoException(
+      throw TikTokLiveException(
           'Failed to fetch room info from WebCast, see stacktrace for more info.');
     }
   }

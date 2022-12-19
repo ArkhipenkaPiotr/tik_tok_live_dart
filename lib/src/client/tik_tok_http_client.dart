@@ -1,6 +1,9 @@
 import 'package:dio/dio.dart';
+import 'package:tik_tok_live_dart/src/client/requests/response_with_cookies.dart';
 import 'package:tik_tok_live_dart/src/client/tik_tok_request_settings.dart';
-import 'package:tik_tok_live_dart/src/generated/lib/src/proto/tiktok_schema.pb.dart';
+import 'package:tik_tok_live_dart/src/errors/tik_tok_live_exception.dart';
+
+import '../generated/proto/tiktok_schema.pb.dart';
 
 class TikTokHttpClient {
   static int _uuc = 0;
@@ -9,15 +12,16 @@ class TikTokHttpClient {
     _uuc++;
   }
 
-  Future<WebcastResponse> getDesetializedMessage(String path, Map<String, dynamic> parameters,
+  Future<WebcastResponseWithCookies> getDeserializedMessage(
+      String path, Map<String, dynamic> parameters,
       [signUrl = false]) async {
-    final json = await _getRequest(
+    final response = await _getRequest(
       url: TikTokRequestSettings.tikTokUrlWebcast + path,
       parameters: parameters,
       signUrl: signUrl,
     );
 
-    return WebcastResponse.fromJson(json.toString());
+    return WebcastResponseWithCookies.fromResponse(response);
   }
 
   Future<Map<String, dynamic>> getObjectFromWebcastApi(String path, Map<String, dynamic> parameters,
@@ -27,7 +31,7 @@ class TikTokHttpClient {
       parameters: parameters,
       signUrl: signUrl,
     );
-    return json;
+    return json.data;
   }
 
   Future<String> getLiveStreamPage(String uniqueId, [bool signUrl = false]) async {
@@ -50,13 +54,14 @@ class TikTokHttpClient {
     return resultJson;
   }
 
-  Future<Map<String, dynamic>> _getRequest({
+  Future<ResponseWithCookies> _getRequest({
     required String url,
     Map<String, dynamic>? parameters,
     bool signUrl = false,
   }) async {
     final request = _buildRequest(
         signUrl ? await _getSignedUrl(url, parameters) : url, signUrl ? null : parameters);
+
     return await request.get();
   }
 
@@ -95,8 +100,9 @@ class TikTokHttpClient {
       final userAgent = content['..User-Agent'];
       TikTokHttpRequest.currentHeaders.remove("User-Agent");
       TikTokHttpRequest.currentHeaders["User-Agent"] = userAgent;
+      return signedUrl;
     } catch (e) {
-      throw InsuffcientSigningException(
+      throw TikTokLiveException(
           "Insufficent values have been supplied for signing. Likely due to an update. Post an issue on GitHub.",
           e);
     }
