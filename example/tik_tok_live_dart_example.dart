@@ -1,6 +1,21 @@
-import 'package:tik_tok_live_dart/tik_tok_live_dart.dart';
+import 'dart:io';
 
-void main() {
-  var awesome = Awesome();
-  print('awesome: ${awesome.isAwesome}');
+import 'package:tik_tok_live_dart/src/client/tik_tok_live_client.dart';
+
+void main() async {
+  print('Input account id');
+  String? uniqueId = stdin.readLineSync();
+
+  if (uniqueId == null) {
+    print('something wrong... try again');
+    main();
+    return;
+  }
+
+  final client = TikTokLiveClient(uniqueId: uniqueId);
+
+  client.run();
+  await for (final message in client.onCommentReceived) {
+    print('Comment received ${message.comment}');
+  }
 }

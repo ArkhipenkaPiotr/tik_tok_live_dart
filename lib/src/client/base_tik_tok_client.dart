@@ -33,10 +33,10 @@ abstract class BaseTikTokClient {
     this.enableExtendedGiftInfo = true,
     this.connecting = false,
     this.isPolling = false,
-    this.clientParams = TikTokRequestSettings.defaultClientParams,
     String lang = 'en-US',
   })  : _uniqueId = uniqueId,
         availableGifts = {},
+        clientParams = TikTokRequestSettings.defaultClientParams,
         http = TikTokHttpClient() {
     clientParams['app_language'] = lang;
     clientParams['webcast_language'] = lang;
@@ -44,8 +44,8 @@ abstract class BaseTikTokClient {
 
   bool get connected => socket?.isConnected ?? false;
 
-  void run([bool retryConnection = false]) {
-    start(retryConnection);
+  Future run([bool retryConnection = false]) async {
+    await start(retryConnection);
     startWebSocketLoop();
     startPolling();
   }
@@ -58,7 +58,7 @@ abstract class BaseTikTokClient {
         await Future.delayed(pollingInterval);
         return await start(retryConnection);
       }
-      return null;
+      rethrow;
     }
   }
 
@@ -78,7 +78,8 @@ abstract class BaseTikTokClient {
     try {
       await fetchRoomId();
       if (fetchRoomInfoOnConnect) {
-        final status = (await fetchRoomInfo()).selectToken('.data').selectToken('.status');
+        final roomInfo = await fetchRoomInfo();
+        final status = roomInfo.selectToken['data']['.status'];
         if (status == null || status == 4) {
           throw TikTokLiveException('Live is not found');
         }

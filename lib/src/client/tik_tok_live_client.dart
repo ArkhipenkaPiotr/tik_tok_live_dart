@@ -10,7 +10,6 @@ class TikTokLiveClient extends BaseTikTokClient {
       {required super.uniqueId,
       super.timeOut,
       super.pollingInterval,
-      super.clientParams,
       super.processInitialData = true,
       super.fetchRoomInfoOnConnect = true,
       super.lang = 'en-US'});

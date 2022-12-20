@@ -42,7 +42,7 @@ class TikTokHttpClient {
       url: '${TikTokRequestSettings.tikTokUrlWeb}@$uniqueId/live/',
       signUrl: signUrl,
     );
-    return json.toString();
+    return json.data.toString();
   }
 
   Future<Map<String, dynamic>> postObjectToWebcastApi(

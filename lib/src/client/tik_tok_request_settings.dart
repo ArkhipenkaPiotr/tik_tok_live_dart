@@ -3,7 +3,7 @@ class TikTokRequestSettings {
   static const tikTokUrlWebcast = "https://webcast.tiktok.com/webcast/";
   static const tikTokSignApi = "https://tiktok.isaackogan.com/webcast/sign_url";
 
-  static const defaultClientParams = <String, dynamic>{
+  static final defaultClientParams = <String, dynamic>{
     "aid": 1988,
     "app_language": "en-US",
     "app_name": "tiktok_web",

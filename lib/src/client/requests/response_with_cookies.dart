@@ -2,7 +2,7 @@ import 'package:tik_tok_live_dart/src/client/requests/tik_tok_cookie_jar.dart';
 import 'package:tik_tok_live_dart/src/generated/proto/tiktok_schema.pb.dart';
 
 class ResponseWithCookies {
-  final Map<String, dynamic> data;
+  final dynamic data;
   final TikTokCookieJar cookieJar;
 
   ResponseWithCookies(this.data, this.cookieJar);
