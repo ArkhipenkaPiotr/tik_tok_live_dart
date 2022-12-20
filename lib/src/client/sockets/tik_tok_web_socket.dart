@@ -24,7 +24,7 @@ class TikTokWebSocket extends ITikTokWebSocket {
         url,
         protocols: ['echo-protocol'],
         headers: {
-          'Cookie': _cookieJar?.allCookies.join(),
+          'Cookie': _cookieJar?.allCurrentCookies,
         },
       );
 

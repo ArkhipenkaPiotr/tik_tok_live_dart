@@ -72,12 +72,13 @@ class TikTokHttpClient {
         options: Options(headers: _currentHeaders), queryParameters: parameters);
     final cookies = response.headers['Set-Cookie'];
     final cookieJar = TikTokCookieJar();
+
     if (cookies != null) {
-      for (final cookie in cookies) {
-        final splitted = cookie.replaceAll(';', '').split('=');
-        cookieJar.set(splitted.first, splitted[1]);
-      }
+      cookieJar.setCookies(cookies);
     }
+    _currentHeaders
+        .addAll(response.headers.map.map((key, value) => MapEntry(key, value.join(';'))));
+    _currentHeaders['Cookie'] = cookieJar.allCurrentCookies;
     return ResponseWithCookies(response.data, cookieJar);
   }
 

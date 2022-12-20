@@ -79,7 +79,7 @@ abstract class BaseTikTokClient {
       await fetchRoomId();
       if (fetchRoomInfoOnConnect) {
         final roomInfo = await fetchRoomInfo();
-        final status = roomInfo.selectToken['data']['.status'];
+        final status = roomInfo['data']['.status'];
         if (status == null || status == 4) {
           throw TikTokLiveException('Live is not found');
         }
